@@ -1,0 +1,131 @@
+ /**                 1
+     * 海风老师课表时间
+     */
+    public List<HfTimeTablePlanTimeData> queryHfCourseTimetable(String hfTeacherId, Date startTime, Date endTime) {
+
+        String url = hfTeachSvcHost + QUERY_HF_COURSE_TIMETABLE;
+
+        Map<String, String> header = buildHeader();
+
+        List<BasicNameValuePair> parameters = new ArrayList<>(3);
+        parameters.add(new BasicNameValuePair("teacherId", hfTeacherId));
+        parameters.add(new BasicNameValuePair("startTime", TimeUtil.dateToString(startTime)));
+        parameters.add(new BasicNameValuePair("endTime", TimeUtil.dateToString(endTime)));
+
+        try {
+            HfTimeTablePlanTimeResponseBean hfResponse = doPostAndRetry(url, parameters, header, HfTimeTablePlanTimeResponseBean.class);
+            if (!SUCCESS_CODE.equals(hfResponse.getCode())) {
+                throw new ExternalSystemException("query hf course time table error, req:" + parameters.toString() + " resp:" + JsonUtil.getJsonFromObject(hfResponse));
+            }
+            return hfResponse.getData();
+        } catch (ExternalSystemException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ExternalSystemException("failed to query hf course time table, parameters:" + parameters.toString(), e);
+        }
+    }
+
+    /**                                         2
+         * 海风老师课表时间
+         */
+        public List<HfTimeTablePlanTimeData> queryHfCourseTimetable(String hfTeacherId, Date startTime, Date endTime) {
+
+            String url = hfTeachSvcHost + QUERY_HF_COURSE_TIMETABLE;
+
+            Map<String, String> header = buildHeader();
+
+            List<BasicNameValuePair> parameters = new ArrayList<>(3);
+            parameters.add(new BasicNameValuePair("teacherId", hfTeacherId));
+            parameters.add(new BasicNameValuePair("startTime", TimeUtil.dateToString(startTime)));
+            parameters.add(new BasicNameValuePair("endTime", TimeUtil.dateToString(endTime)));
+            List<HfTimeTablePlanTimeData> data = Collections.emptyList();
+            try {
+                HfTimeTablePlanTimeResponseBean hfResponse = doPostAndRetry(url, parameters, header, HfTimeTablePlanTimeResponseBean.class);
+                if (!SUCCESS_CODE.equals(hfResponse.getCode())) {
+                    logger.error("failed to query hf course time table, parameters:{},result:{}",parameters.toString(),JsonUtil.getJsonFromObject(hfResponse));
+                }
+                if(!CollectionsUtil.isNullOrEmpty(hfResponse.getData())){
+                    data = hfResponse.getData();
+                }
+                return data;
+            } catch (Exception e) {
+                logger.error("failed to query hf course time table, parameters:{}",parameters.toString(),e);
+            }
+            return data;
+        }
+
+        对比1 和 2 的代码发现，1中catch到的错误都被throw出去了，而2中的则是捕捉到错误之后打印错误日志，不抛错误
+        春鑫哥说的是，这里面抛错误会导致外面的全部失败，外面的代码，之前是这个样子
+
+
+        private List<HfLessonPlan> getHfLessonPlan(List<TeacherAttributeTag> hfTeacherBindIdList) {
+                List<Long> hfTeacherIdList = CollectionsUtil.getComposerIds(hfTeacherBindIdList,TeacherAttributeTag.TEACHER_Hf_ID_COMPOSER);
+
+                Date startTime = TimeUtil.getStartTimeOfOneDay(new Date()); //今天正常时间
+                Date endTime = TimeUtil.dayAfter(startTime, 4 * 7);//28天后 正常时间
+                List<? extends GetTimeRangeInterface> timeRangeInterfaces = Lists.newArrayList();
+                List<HfLessonPlan> hfLessonPlans  = Lists.newArrayList();
+                if (!forbiddenGetHfTeacherTimeFromDbSwitch) {
+                    try {
+                        //from db
+                        logger.info("start get hf teacher time by hf db");
+                        hfLessonPlans = hfLessonPlanService.findOccupyLesson(hfTeacherIdList);
+                    } catch (Exception e) {
+                        logger.error("get teacher time by hf db is error,start get hf teacher time by http,hfTeacherId:{}", hfTeacherIdList.get(0), e);
+
+                        for (Long hfTeacherId:hfTeacherIdList){
+                            timeRangeInterfaces = hfTeachSvcManager.queryHfCourseTimetable(String.valueOf(hfTeacherId), startTime, endTime);
+                            List<HfLessonPlan> lessonPlans = convert2HfLessonPlan(hfTeacherId,timeRangeInterfaces);
+                            hfLessonPlans.addAll(lessonPlans);
+                        }
+                    }
+                }else {
+                    logger.info("start get hf teacher time by http");
+                    for (Long hfTeacherId:hfTeacherIdList){
+                        timeRangeInterfaces = hfTeachSvcManager.queryHfCourseTimetable(String.valueOf(hfTeacherId), startTime, endTime);
+                        List<HfLessonPlan> lessonPlans = convert2HfLessonPlan(hfTeacherId,timeRangeInterfaces);
+                        hfLessonPlans.addAll(lessonPlans);
+                    }
+                }
+                Map<Long, TeacherAttributeTag> hfTeacherId2TeacherAttributeTagMap = convert2HfId(hfTeacherBindIdList);
+                for (HfLessonPlan hfLessonPlan:hfLessonPlans){
+                    if(hfTeacherId2TeacherAttributeTagMap.containsKey(hfLessonPlan.getHfTeacherId())){
+                        hfLessonPlan.setHfTeacherId(hfTeacherId2TeacherAttributeTagMap.get(hfLessonPlan.getHfTeacherId()).getTeacherId());
+                    }
+                }
+                logger.info("hflessonPlansFromHttp:"+ hfLessonPlans.toString());
+                return hfLessonPlans;
+            }
+
+
+
+            现在改了，只通过http获取
+            private List<HfLessonPlan> getHfLessonPlan(List<TeacherAttributeTag> hfTeacherBindIdList) {
+                    List<Long> hfTeacherIdList = CollectionsUtil.getComposerIds(hfTeacherBindIdList,TeacherAttributeTag.TEACHER_Hf_ID_COMPOSER);
+
+                    Date startTime = TimeUtil.getStartTimeOfOneDay(new Date()); //今天正常时间
+                    Date endTime = TimeUtil.dayAfter(startTime, 4 * 7);//28天后 正常时间
+                    List<HfLessonPlan> hfLessonPlans  = Lists.newArrayList();
+
+                    logger.info("start get hf teacher time by http");
+                    for (Long hfTeacherId : hfTeacherIdList) {
+                        List<? extends GetTimeRangeInterface> timeRangeInterfaces  = hfTeachSvcManager.queryHfCourseTimetable(String.valueOf(hfTeacherId), startTime, endTime);
+                        if(CollectionsUtil.isNullOrEmpty(timeRangeInterfaces)){
+                            continue;
+                        }
+                        List<HfLessonPlan> lessonPlans = convert2HfLessonPlan(hfTeacherId, timeRangeInterfaces);
+                        hfLessonPlans.addAll(lessonPlans);
+                    }
+
+                    Map<Long, TeacherAttributeTag> hfTeacherId2TeacherAttributeTagMap = convert2HfId(hfTeacherBindIdList);
+                    for (HfLessonPlan hfLessonPlan:hfLessonPlans){
+                        if(hfTeacherId2TeacherAttributeTagMap.containsKey(hfLessonPlan.getHfTeacherId())){
+                            hfLessonPlan.setHfTeacherId(hfTeacherId2TeacherAttributeTagMap.get(hfLessonPlan.getHfTeacherId()).getTeacherId());
+                        }
+                    }
+                    logger.info("hflessonPlansFromHttp:"+ hfLessonPlans.toString());
+                    return hfLessonPlans;
+                }
+
+
+                也就是，现在哪怕调用报错也只会在里面打个日志，外层也不管里面有没有报错。

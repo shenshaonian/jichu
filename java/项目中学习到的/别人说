@@ -1,0 +1,11 @@
+1
+春鑫哥说要看这些
+
+HfAsyncEventManager：异步事件（数据最终一致性问题）
+分布式锁：redis，zookeeper
+redis、mq：rocketmq、activityMq、rabbitmq
+
+
+HfAsyncEventManager 异步事件的接收
+                    异步事件的发送
+                    异步事件线程的了解和学习

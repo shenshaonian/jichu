@@ -1,0 +1,9 @@
+# Created by .ignore support plugin (hsz.mobi)
+.gitignore
+.idea/modules/
+.idea/shelf/
+.idea/workspace.xml
+java/.idea/
+"java/\351\241\271\347\233\256\344\270\255\345\255\246\344\271\240\345\210\260\347\232\204/\346\263\233\345\236\213/proto/"
+springbt/src/test/
+springbt/target/

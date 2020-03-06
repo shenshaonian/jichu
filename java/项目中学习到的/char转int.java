@@ -23,6 +23,10 @@ public class char转int {
 
     @Test
     public void test2(){
+        hh();
+    }
+
+    private void hh() {
         char ch = '9';
         if (Character.isDigit(ch)){  // 判断是否是数字
             int num = (int)ch - (int)('0');
